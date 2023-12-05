@@ -12,17 +12,32 @@ final class CorporateWeekStats extends Model
 
     public static function loadModels(): array
     {
+        $response = Http::withHeaders([
+            'Content-Type' => 'application/x-www-form-urlencoded',
+            'Authorization' => 'Basic M2drNDFjNXRidXJqOTUzODh0NTF2bmhla3Y6bDluYmJuNTFnMTQyMG1vZTRvMWY1djJtN3J0NGdpdnJ1bDJkaGZvMGk5anBsNDZoYTI0',
+            'Cookie' => 'XSRF-TOKEN=4a47a55d-8d88-48e0-9c40-e706589304f6',
+        ])
+        ->asForm()
+        ->post('https://dev-verified-fac-domain.auth.us-west-1.amazoncognito.com/oauth2/token', [
+            'grant_type' => 'client_credentials',
+            'client_id' => '3gk41c5tburj95388t51vnhekv',
+            'redirect_uri' => 'https://auth.verifiedplatform.com/',
+            'scope' => 'facility/identity.write facility/identity.read facility/fac.write facility/fac.read',
+        ]);
+
+        $responseLogin = json_decode($response->body(), 'true');
+
         $response = Http::withBody(
                 '{
           "start_date": "1672531200",
-          "end_date": "1700999999",
+          "end_date": "1701561600",
           "corporate_id": "0014P00002Fv3iq"
         }', 'json'
             )
             ->withHeaders([
                 'Accept'=> '*/*',
                 'User-Agent'=> 'Thunder Client (https://www.thunderclient.com)',
-                'Authorization'=> 'eyJraWQiOiIwcVJpR2lrcHFUUmRhXC9uQTdKNmF1bXp0WmJmSVJuWjFYc0RlUjh5bmJHOD0iLCJhbGciOiJSUzI1NiJ9.eyJzdWIiOiIzZ2s0MWM1dGJ1cmo5NTM4OHQ1MXZuaGVrdiIsInRva2VuX3VzZSI6ImFjY2VzcyIsInNjb3BlIjoiZmFjaWxpdHlcL2ZhYy5yZWFkIGZhY2lsaXR5XC9mYWMud3JpdGUgZmFjaWxpdHlcL2lkZW50aXR5LnJlYWQgZmFjaWxpdHlcL2lkZW50aXR5LndyaXRlIiwiYXV0aF90aW1lIjoxNzAxNzA3OTIzLCJpc3MiOiJodHRwczpcL1wvY29nbml0by1pZHAudXMtd2VzdC0xLmFtYXpvbmF3cy5jb21cL3VzLXdlc3QtMV9kYTlvZ0VuSzEiLCJleHAiOjE3MDE3OTQzMjMsImlhdCI6MTcwMTcwNzkyMywidmVyc2lvbiI6MiwianRpIjoiMDc5NjE3NGUtNmYyYi00ZTE3LWIwZDMtMjUxN2E3NTJmM2RhIiwiY2xpZW50X2lkIjoiM2drNDFjNXRidXJqOTUzODh0NTF2bmhla3YifQ.b8XTXXmfXciKLHBVnvZdnf_FlPCtBHsDvK9zWXmgNOG95dZly4HnDxzkiZw0z4M9u4-y8L9hzvYo1aU56buo7oj9H1nc2t_IMTpLUXd0lQ43D0izRnthfVzXV-hTCu3SZ4HR4il58A2sYkc6HCtwh2UPaNr_TPbbLOuRIO3-IPwdsH-E7amRfyVWhg4OyqXV_0KKTJH3Gpys7APIHwCZ5szMJF2Xp92zkj5bMFyzC6m26B_otDO85YWWV1DvatUMvIT4c2h0Q8kasQUZueYPVWrX8C6AC7rmYfxrkjFz_dWqMP877hQDtiXfiVw8bluK1DOJhEUHkVkSheNIqGl8vA',
+                'Authorization'=> $responseLogin['access_token'],
                 'Content-Type'=> 'application/json',
             ])
             ->get('https://dthcmnqvt1.execute-api.us-west-1.amazonaws.com/corporate_week_stats/by_range');

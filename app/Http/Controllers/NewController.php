@@ -8,6 +8,7 @@ use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 
@@ -51,7 +52,6 @@ class NewController extends Controller
     public function reportYtd(Request $request)
     {
         $weekStats = CorporateWeekStats::loadModels();
-        dd($weekStats[1]);
 
         $outPutArray = [];
 
@@ -75,81 +75,137 @@ class NewController extends Controller
         }
 
         $weeksArray = collect($outPutArray)->groupBy(['week_range', 'account_name']);
-        dd($weeksArray);
 
         // Create a new Spreadsheet
         $spreadsheet = new Spreadsheet();
         $sheet = $spreadsheet->getActiveSheet();
 
         // Set the column headers
-        $sheet->setCellValue('A2', 'Account');
-        $sheet->setCellValue('B2', 'Participants');
-        $sheet->setCellValue('C2', 'Activities');
-        $sheet->setCellValue('D2', 'Deliveries');
-        $sheet->setCellValue('E2', 'Engagement');
-
-        // Loop through the array and populate the spreadsheet
-        $row = 2;
         $columnXNumber = 1;
-        foreach ($weeksArray as $weekRange => $accounts) {
-            $lastColumnIndex = $columnXNumber + 5;
-            // Set the value in the current column
-            $sheet->setCellValueByColumnAndRow($columnXNumber, 1, $weekRange);
-
-            if ($lastColumnIndex === 6) { // only the first time
-                $sheet->setCellValueByColumnAndRow($lastColumnIndex + 1, 2, 'Account');
-            } else {
-                $sheet->setCellValueByColumnAndRow($lastColumnIndex + 1, 2, '');
-            }
-
-            $sheet->setCellValueByColumnAndRow($lastColumnIndex + 1, 2, 'Participants');
-            $sheet->setCellValueByColumnAndRow($lastColumnIndex + 2, 2, 'Activities');
-            $sheet->setCellValueByColumnAndRow($lastColumnIndex + 3, 2, 'Deliveries');
-            $sheet->setCellValueByColumnAndRow($lastColumnIndex + 4, 2, 'Engagement');
-
-            // Calculate the last column index for merging
-            $lastColumnIndex = $columnXNumber + 4;
-
-            // Merge the current column to the next 3 columns
-            $sheet->mergeCellsByColumnAndRow($columnXNumber, 1, $lastColumnIndex, 1);
-
-            // Center the content within the merged cells
-            $sheet->getStyleByColumnAndRow($columnXNumber, 1, $lastColumnIndex, 1)->getAlignment()->setHorizontal('center');
-
-            // Move to the next starting column for the next iteration
-            $columnXNumber = $lastColumnIndex + 1;
-
-            $row++;
+        foreach ($weeksArray as $weekRange => $weekItem) {
+            $sheet->setCellValueByColumnAndRow($columnXNumber, 2, 'Account');
+            $columnXNumber++;
+            $sheet->setCellValueByColumnAndRow($columnXNumber, 2, 'Participants');
+            $columnXNumber++;
+            $sheet->setCellValueByColumnAndRow($columnXNumber, 2, 'Activities');
+            $columnXNumber++;
+            $sheet->setCellValueByColumnAndRow($columnXNumber, 2, 'Deliveries');
+            $columnXNumber++;
+            $sheet->setCellValueByColumnAndRow($columnXNumber, 2, 'Engagement');
+            $columnXNumber++;
         }
 
-        $accountRow = 3;
-        foreach ($weeksArray as $weekRange => $accounts) {
-            foreach ($accounts as $accountName => $value) {
-                $sheet->setCellValue("A{$accountRow}", $accountName);
-                $accountRow++;
-            }
-            break;
-        }
+        // Ytd-participants|Ytd-deliveries|YtdEngagement
 
-        $row = 2;
-        $statsRow = 3;
+        // Only put the account names for now!
         $columnXNumber = 1;
-        foreach ($weeksArray as $weekRange => $accounts) {
-            foreach ($accounts as $accountName => $value) {
-                if ($statsRow >= sizeof($accounts)) {
-                    $columnXNumber = $columnXNumber + 5; // Salto 5 columnas en horizontal
-                    $statsRow = 3;
+        foreach ($weeksArray as $weekRange => $weekItem) {
+            $rowNumber = 3;
+            foreach ($weekItem as $accountName => $accountItem) {
+                if ($rowNumber > 106) {
+                    $columnXNumber = $columnXNumber + 5;
+                    $rowNumber = 3;
                 }
-                // Set the value in the current column
-                $sheet->setCellValueByColumnAndRow($columnXNumber + 1, $statsRow, $value[0]['participants']);
-                $sheet->setCellValueByColumnAndRow($columnXNumber + 2, $statsRow, $value[0]['activities']);
-                $sheet->setCellValueByColumnAndRow($columnXNumber + 3, $statsRow, $value[0]['deliveries']);
-                $sheet->setCellValueByColumnAndRow($columnXNumber + 4, $statsRow, $value[0]['engagement']);
-
-                $statsRow++;
+                $sheet->setCellValueByColumnAndRow($columnXNumber, $rowNumber, $accountName);
+                $rowNumber = $rowNumber + 1;
             }
+            $columnXNumber = $columnXNumber + 5;
         }
 
+        // Only put the additional data for now!
+        $columnXNumber = 2;
+        foreach ($weeksArray as $weekRange => $weekItem) {
+            $rowNumber = 3;
+            foreach ($weekItem as $accountName => $accountItem) {
+                if ($rowNumber > 106) {
+                    $columnXNumber = $columnXNumber + 5;
+                    $rowNumber = 3;
+                }
+                $sheet->setCellValueByColumnAndRow($columnXNumber, $rowNumber, $accountItem[0]['participants']);
+                $rowNumber = $rowNumber + 1;
+            }
+            $columnXNumber = $columnXNumber + 5;
+        }
+
+        // TODO: Activities
+        $columnXNumber = 3;
+        $arrayIndex = 0;
+        $ytdActivities = [];
+        foreach ($weeksArray as $weekRange => $weekItem) {
+            $rowNumber = 3;
+            foreach ($weekItem as $accountName => $accountItem) {
+                if ($rowNumber > 106) {
+                    $columnXNumber = $columnXNumber + 5;
+                    $rowNumber = 3;
+                    $arrayIndex = 0;
+                }
+                $sheet->setCellValueByColumnAndRow($columnXNumber, $rowNumber, $accountItem[0]['activities']);
+                $rowNumber = $rowNumber + 1;
+                $ytdActivities[$accountName][$arrayIndex] = $accountItem[0]['activities'];
+
+                $arrayIndex++;
+            }
+            $columnXNumber = $columnXNumber + 5;
+        }
+
+        $columnXNumber = 4;
+        $ytdDeliveries = [];
+        foreach ($weeksArray as $weekRange => $weekItem) {
+            $rowNumber = 3;
+            foreach ($weekItem as $accountName => $accountItem) {
+                if ($rowNumber > 106) {
+                    $columnXNumber = $columnXNumber + 5;
+                    $rowNumber = 3;
+                }
+                $sheet->setCellValueByColumnAndRow($columnXNumber, $rowNumber, $accountItem[0]['deliveries']);
+                $rowNumber = $rowNumber + 1;
+                $ytdDeliveries[$accountName][$arrayIndex] = $accountItem[0]['deliveries'];
+                $arrayIndex++;
+            }
+            $columnXNumber = $columnXNumber + 5;
+        }
+
+        $columnXNumber = 5;
+        foreach ($weeksArray as $weekRange => $weekItem) {
+            $rowNumber = 3;
+            foreach ($weekItem as $accountName => $accountItem) {
+                if ($rowNumber > 106) {
+                    $columnXNumber = $columnXNumber + 5;
+                    $rowNumber = 3;
+                }
+                $sheet->setCellValueByColumnAndRow($columnXNumber, $rowNumber, number_format($accountItem[0]['engagement'] * 100, 2));
+                $rowNumber = $rowNumber + 1;
+            }
+            $columnXNumber = $columnXNumber + 5;
+        }
+
+        $rowNumber = 1;
+        $columnNumber = 2;
+        foreach ($weeksArray as $weekName => $weekItem) {
+            $sheet->setCellValueByColumnAndRow($columnNumber, $rowNumber, $weekName);
+            $columnNumber = $columnNumber + 5;
+        }
+
+        // Acumulado
+        $highestColumn = $sheet->getHighestDataColumn();
+        $highestColumnNumber = Coordinate::columnIndexFromString($highestColumn) + 2;
+
+        $sheet->setCellValueByColumnAndRow($highestColumnNumber, 2, 'YTD Activities');
+        $sheet->setCellValueByColumnAndRow($highestColumnNumber + 1, 2, 'YTD Deliveries');
+        $sheet->setCellValueByColumnAndRow($highestColumnNumber + 2, 2, 'YTD Engagement rate');
+
+        // YtdActivities
+        $rowNumber = 3;
+        foreach ($ytdActivities as $accountName => $item) {
+            $sheet->setCellValueByColumnAndRow($highestColumnNumber, $rowNumber, collect($item)->sum());
+            $rowNumber++;
+        }
+
+        $rowNumber = 3;
+        foreach ($ytdDeliveries as $accountName => $item) {
+            $sheet->setCellValueByColumnAndRow($highestColumnNumber + 1, $rowNumber, collect($item)->sum());
+            $rowNumber++;
+        }
 
         // Set AutoSize for all columns
         foreach ($sheet->getColumnIterator() as $column) {
@@ -158,7 +214,7 @@ class NewController extends Controller
 
         // Set the response headers
         header('Content-Type: application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
-        header('Content-Disposition: attachment;filename="report_ytd_'. time() .'.xlsx"');
+        header('Content-Disposition: attachment;filename="report_ytd_' . time() . '.xlsx"');
         header('Cache-Control: max-age=0');
 
         // Save the spreadsheet to PHP output
